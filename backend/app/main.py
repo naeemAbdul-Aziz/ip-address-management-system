@@ -24,9 +24,27 @@ def get_session():
     with Session(engine) as session:
         yield session
 
+from sqlalchemy import text
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     SQLModel.metadata.create_all(engine)
+    
+    # Auto-migration for 'cidr' column to fix production DB
+    with Session(engine) as session:
+        try:
+            # Check if column exists by trying to read it
+            session.exec(text("SELECT cidr FROM namespace LIMIT 1"))
+        except Exception:
+            print("⚠️ Migration: Column 'cidr' missing. Attempting to add it...")
+            try:
+                # Add column with default
+                session.connection().execute(text("ALTER TABLE namespace ADD COLUMN cidr VARCHAR DEFAULT '10.0.0.0/8'"))
+                session.commit()
+                print("✅ Migration: Successfully added 'cidr' column.")
+            except Exception as e:
+                print(f"❌ Migration failed: {e}")
+                
     yield
 
 app = FastAPI(title="IPAM Core", version="1.0.0", lifespan=lifespan)
