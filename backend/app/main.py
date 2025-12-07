@@ -89,6 +89,7 @@ allowed_origins = [
     "http://localhost:8000",      # Local backend
     "http://ipam_frontend:3000",  # Docker container
     "http://127.0.0.1:3000",      # Localhost alias
+    "https://ipam-frontend.onrender.com", # Production Frontend
 ]
 
 app.add_middleware(

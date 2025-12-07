@@ -174,7 +174,7 @@ export default function Dashboard() {
                          onChange={e => setNewNsCidr(e.target.value)}
                          placeholder="Root CIDR" 
                          autoFocus
-                         className="w-full pl-3 pr-9 py-2 bg-white border border-gray-200 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all shadow-sm font-mono text-xs"
+                         className="w-full pl-3 pr-9 py-2 bg-white border border-gray-200 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all shadow-sm font-mono"
                          />
                     ) : (
                         <select
