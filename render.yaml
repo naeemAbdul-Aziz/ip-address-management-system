@@ -30,13 +30,12 @@ services:
     buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
-      - key: NEXT_PUBLIC_API_URL
-        fromService:
-          type: web
-          name: ipam-backend
-          property: url
       - key: NODE_VERSION
         value: 20.9.0
+      # NOTE: Render Blueprints cannot auto-inject the Public URL of the backend.
+      # You must copy the Backend URL from the Dashboard and paste it here manually after first deploy.
+      - key: NEXT_PUBLIC_API_URL
+        value: https://replace-me-with-backend-url.onrender.com
 
 databases:
   # ---------------------------------------------------
