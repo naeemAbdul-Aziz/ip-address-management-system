@@ -9,7 +9,7 @@ import {
 import SubnetGrid from '../components/SubnetGrid';
 import { 
   Plus, Layers, Network, Server, 
-  Activity, ShieldCheck, Search, Wand2, MapPin, Hash
+  Activity, ShieldCheck, Search, Wand2, MapPin, Hash, Sparkles
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -26,6 +26,7 @@ export default function Dashboard() {
   const [newVlanId, setNewVlanId] = useState('');
   const [newLocation, setNewLocation] = useState('');
   const [selectedPrefix, setSelectedPrefix] = useState(24);
+  const [isSuggesting, setIsSuggesting] = useState(false);
   
   const refreshNamespaces = async () => {
     try {
@@ -85,6 +86,7 @@ export default function Dashboard() {
 
   const handleSuggestCidr = async () => {
     if (!selectedNs) return;
+    setIsSuggesting(true);
     try {
         const { getSuggestedCidr } = await import('../lib/api'); 
         const data = await getSuggestedCidr(selectedNs, selectedPrefix);
@@ -92,64 +94,74 @@ export default function Dashboard() {
     } catch (err) {
         console.error(err);
         alert('Could not find a free subnet in this scope.');
+    } finally {
+        setIsSuggesting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-gray-200">
+    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-gray-200 pb-20">
       {/* Header */}
-      <header className="border-b border-gray-200 bg-white/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <header className="border-b border-gray-200 bg-white/80 backdrop-blur-md sticky top-0 z-50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="bg-black text-white p-1.5 rounded-lg">
+            <div className="bg-black text-white p-1.5 rounded-lg shadow-sm">
               <Network size={20} />
             </div>
-            <h1 className="text-lg font-semibold tracking-tight text-gray-900">
+            <h1 className="text-lg font-semibold tracking-tight text-gray-900 hidden md:block">
               IPAM Core
+            </h1>
+            <h1 className="text-lg font-semibold tracking-tight text-gray-900 md:hidden">
+              IPAM
             </h1>
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-md text-sm text-gray-500">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              System Operational
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-full text-xs font-medium text-emerald-700 border border-emerald-100">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Operational
             </div>
           </div>
         </div>
       </header>
 
-      <main className="p-8 max-w-7xl mx-auto space-y-8">
+      <main className="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
         {/* Namespace Section */}
-        <section>
-          <div className="flex items-center justify-between mb-4">
+        <section className="space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider flex items-center gap-2">
-              <Layers size={14} /> Namespaces
+              <Layers size={14} /> Namespaces (Environments)
             </h2>
-            <form onSubmit={handleCreateNs} className="flex gap-2">
-              <div className="relative group">
+            <form onSubmit={handleCreateNs} className="w-full md:w-auto">
+              <div className="relative group flex items-center">
                 <input 
                   value={newNsName}
                   onChange={e => setNewNsName(e.target.value)}
-                  placeholder="New Namespace..." 
-                  className="pl-8 pr-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all w-48 shadow-sm"
+                  placeholder="Create new (e.g. Production)..." 
+                  className="w-full md:w-64 pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all shadow-sm"
                 />
-                <Plus size={14} className="absolute left-2.5 top-2 text-gray-400" />
+                <Plus size={16} className="absolute left-3 text-gray-400 group-focus-within:text-black transition-colors" />
+                <button type="submit" className="hidden" /> {/* Enter key submit */}
               </div>
             </form>
           </div>
           
-          <div className="flex gap-3 overflow-x-auto pb-2">
-            {namespaces.length === 0 && <span className="text-gray-400 text-sm italic">Create a namespace to begin...</span>}
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
+            {namespaces.length === 0 && (
+                <div className="text-center w-full py-8 border-2 border-dashed border-gray-200 rounded-xl bg-white/50">
+                    <p className="text-gray-500 text-sm">No environments found. Create one above!</p>
+                </div>
+            )}
             {namespaces.map(ns => (
               <button
                 key={ns.id}
                 onClick={() => setSelectedNs(ns.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all duration-200 ${
+                className={`flex-shrink-0 flex items-center gap-2 px-5 py-3 rounded-xl border text-sm font-medium transition-all duration-200 ${
                   selectedNs === ns.id 
                     ? 'bg-black border-black text-white shadow-lg shadow-gray-200 scale-[1.02]' 
                     : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                <Server size={14} className={selectedNs === ns.id ? 'text-gray-300' : 'text-gray-400'} />
+                <Server size={16} className={selectedNs === ns.id ? 'text-gray-300' : 'text-gray-400'} />
                 {ns.name}
               </button>
             ))}
@@ -158,93 +170,97 @@ export default function Dashboard() {
 
         {/* Subnets Section */}
         {selectedNs && (
-          <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-6 gap-4">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-2xl font-semibold tracking-tight text-gray-900">Subnets</h2>
-                  <span className="px-2.5 py-0.5 bg-gray-100 border border-gray-200 rounded-full text-xs font-medium text-gray-600">
-                    {subnets.length} Active
-                  </span>
+          <section className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+             <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-gray-100">
+                <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-2">
+                    <div>
+                        <h2 className="text-xl font-semibold tracking-tight text-gray-900">Network Blocks</h2>
+                        <p className="text-sm text-gray-500">Manage IP ranges for this environment.</p>
+                    </div>
+                     <span className="self-start md:self-center px-3 py-1 bg-gray-100 border border-gray-200 rounded-full text-xs font-medium text-gray-600">
+                        {subnets.length} Active Subnets
+                    </span>
                 </div>
                 
-                <form onSubmit={handleCreateSubnet} className="flex flex-wrap gap-3 p-2 bg-white border border-gray-200 rounded-xl shadow-sm items-center">
+                {/* Creation Form - Responsive Grid */}
+                <form onSubmit={handleCreateSubnet} className="grid grid-cols-1 md:grid-cols-12 gap-3">
                   
                   {/* Size Selector */}
-                  <div className="flex items-center gap-2 px-2 border-r border-gray-100">
-                    <span className="text-xs font-mono text-gray-400">PREFIX</span>
+                  <div className="md:col-span-2 relative bg-gray-50 rounded-lg border border-gray-200 px-3 py-2">
+                    <span className="absolute top-1 left-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Size</span>
                     <select 
                         value={selectedPrefix}
                         onChange={e => setSelectedPrefix(parseInt(e.target.value))}
-                        className="bg-transparent text-sm font-medium focus:outline-none cursor-pointer"
+                        className="w-full bg-transparent text-sm font-medium focus:outline-none cursor-pointer mt-3 pt-0.5"
                     >
-                        <option value={24}>/24 (254 IPs)</option>
-                        <option value={25}>/25 (126 IPs)</option>
-                        <option value={26}>/26 (62 IPs)</option>
-                        <option value={27}>/27 (30 IPs)</option>
-                        <option value={28}>/28 (14 IPs)</option>
+                        <option value={24}>/24 (Large)</option>
+                        <option value={25}>/25 (Half)</option>
+                        <option value={26}>/26 (Medium)</option>
+                        <option value={27}>/27 (Small)</option>
+                        <option value={28}>/28 (Tiny)</option>
                     </select>
                   </div>
 
                   {/* CIDR Input + Wand */}
-                  <div className="relative flex items-center group">
+                  <div className="md:col-span-3 relative group">
                     <input 
                         value={newSubnetCidr}
                         onChange={e => setNewSubnetCidr(e.target.value)}
-                        placeholder="CIDR..." 
-                        className="pl-3 pr-8 py-1.5 bg-gray-50 rounded-lg text-sm focus:outline-none w-32 font-mono text-gray-600 border border-transparent focus:border-gray-300 transition-all"
+                        placeholder="Network CIDR..." 
+                        className="w-full h-full pl-3 pr-10 py-3 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black/5 font-mono text-gray-700 transition-all"
                     />
                     <button 
                         type="button"
                         onClick={handleSuggestCidr}
-                        className="absolute right-2 p-1 text-gray-400 hover:text-purple-600 transition-colors"
+                        disabled={isSuggesting}
+                        className="absolute right-2 top-2 bottom-2 p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-md transition-colors disabled:animate-spin"
                         title="Auto-Suggest Next Free Subnet"
                     >
-                        <Wand2 size={12} />
+                        <Wand2 size={16} />
                     </button>
                   </div>
 
-                  {/* Metadata Inputs */}
+                  {/* Vlan & Location - Stacked on mobile, side-by-side on desktop */}
                   <input 
                     value={newVlanId}
                     onChange={e => setNewVlanId(e.target.value)}
-                    placeholder="VLAN ID" 
+                    placeholder="VLAN ID (Opt)" 
                     type="number"
-                    className="px-3 py-1.5 bg-transparent text-sm focus:outline-none w-20 border-l border-gray-100 text-gray-600"
+                    className="md:col-span-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black/5"
                   />
                    <input 
                     value={newLocation}
                     onChange={e => setNewLocation(e.target.value)}
-                    placeholder="Location (e.g. HQ)" 
-                    className="px-3 py-1.5 bg-transparent text-sm focus:outline-none w-32 border-l border-gray-100 text-gray-600"
+                    placeholder="Location (Opt)" 
+                    className="md:col-span-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black/5"
                   />
-                  <div className="w-px bg-gray-200 h-6" />
                   
                   <input 
                     value={newSubnetLabel}
                     onChange={e => setNewSubnetLabel(e.target.value)}
-                    placeholder="Label..." 
-                    className="px-3 py-1.5 bg-transparent text-sm focus:outline-none w-32 text-gray-600 font-medium"
+                    placeholder="Label (e.g. Web Servers)..." 
+                    className="md:col-span-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black/5 font-medium"
                   />
                   
-                  <button className="bg-black text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors flex items-center gap-2 shadow-lg shadow-gray-200">
-                    <Plus size={14} /> Create
+                  <button className="md:col-span-1 bg-black text-white rounded-lg text-sm font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-gray-200 active:scale-95 py-3 md:py-0">
+                    <Plus size={16} /> <span className="md:hidden">Create Block</span>
                   </button>
                 </form>
              </div>
 
              <div className="grid grid-cols-1 gap-6">
                {subnets.map(subnet => (
-                 <div key={subnet.id} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-300 group">
-                    <div className="flex justify-between items-start mb-6">
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-3">
+                 <div key={subnet.id} className="bg-white border border-gray-200 rounded-2xl p-5 md:p-6 shadow-sm hover:shadow-md transition-all duration-300 group">
+                    <div className="flex flex-col md:flex-row justify-between items-start mb-6 gap-4">
+                      <div className="space-y-3 w-full md:w-auto">
+                        <div className="flex items-center gap-3 flex-wrap">
                           <h3 className="text-xl font-mono text-gray-900 font-medium tracking-tight group-hover:text-blue-600 transition-colors">{subnet.cidr}</h3>
                           <span className="px-2.5 py-0.5 bg-gray-100 border border-gray-200 rounded-md text-xs font-semibold text-gray-600 flex items-center gap-1 uppercase tracking-wide">
                             {subnet.label}
                           </span>
                         </div>
                         
-                        <div className="flex items-center gap-4 text-xs text-gray-500 font-medium">
+                        <div className="flex items-center gap-3 text-xs text-gray-500 font-medium flex-wrap">
                             {subnet.vlan_id && (
                                 <span className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded border border-gray-100">
                                     <Hash size={12} className="text-gray-400" /> VLAN {subnet.vlan_id}
@@ -256,14 +272,14 @@ export default function Dashboard() {
                                 </span>
                             )}
                              <span className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded border border-gray-100">
-                               <ShieldCheck size={12} className="text-emerald-500" /> Strict
+                               <ShieldCheck size={12} className="text-emerald-500" /> Protected
                             </span>
                         </div>
                       </div>
                       
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-gray-900">{subnet.utilization?.toFixed(1)}%</div>
+                      <div className="flex items-center md:flex-col md:items-end gap-3 md:gap-0 w-full md:w-auto justify-between md:justify-start pt-2 md:pt-0 border-t md:border-t-0 border-gray-100">
                         <div className="text-xs text-gray-400 font-medium uppercase tracking-wide">Utilization</div>
+                        <div className="text-2xl font-bold text-gray-900">{subnet.utilization?.toFixed(1)}%</div>
                       </div>
                     </div>
                     
@@ -282,13 +298,14 @@ export default function Dashboard() {
                ))}
                
                {subnets.length === 0 && (
-                 <div className="flex flex-col items-center justify-center py-24 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+                 <div className="flex flex-col items-center justify-center py-12 md:py-24 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 mx-4 md:mx-0">
                    <div className="bg-white p-4 rounded-full shadow-sm mb-4">
-                     <Search size={32} className="text-gray-300" />
+                     <Sparkles size={32} className="text-purple-400" />
                    </div>
-                   <h3 className="text-lg font-medium text-gray-900">No Subnets Found</h3>
-                   <p className="text-gray-500 text-sm mt-1 max-w-sm text-center">
-                     Use the creation bar above to add your first subnet. Try the <strong>Magic Wand</strong> for auto-suggestions!
+                   <h3 className="text-lg font-medium text-gray-900">Your Network Canvas is Empty</h3>
+                   <p className="text-gray-500 text-sm mt-2 max-w-sm text-center px-4">
+                     Start by adding a subnet block above. <br/>
+                     <strong>Pro Tip:</strong> Select a size (e.g., /24) and click the <Wand2 className="inline text-purple-500 w-3 h-3"/> Wand to auto-find a spot!
                    </p>
                  </div>
                )}
