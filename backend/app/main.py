@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from sqlmodel import Session, select, create_engine, SQLModel
 from typing import List
 import os
+import ipaddress
 from .models import Namespace, Subnet, IPAddress, IPStatus, SubnetBase
 from .logic import (
     validate_overlap, 
@@ -54,6 +55,12 @@ def list_namespaces(session: Session = Depends(get_session)):
 
 @app.post("/namespaces", response_model=Namespace, status_code=201)
 def create_namespace(namespace: Namespace, session: Session = Depends(get_session)):
+    # Validate CIDR
+    try:
+        ipaddress.ip_network(namespace.cidr, strict=False)
+    except ValueError:
+         raise HTTPException(status_code=400, detail="Invalid Root CIDR format")
+
     existing = session.exec(select(Namespace).where(Namespace.name == namespace.name)).first()
     if existing:
         raise HTTPException(status_code=400, detail="Namespace already exists")
@@ -70,7 +77,8 @@ def suggest_cidr(id: int, prefix: int = 24, session: Session = Depends(get_sessi
         
     existing_subnets = session.exec(select(Subnet).where(Subnet.namespace_id == id)).all()
     
-    suggestion = find_next_free_subnet(existing_subnets, prefix)
+    # Use namespace.cidr as root
+    suggestion = find_next_free_subnet(existing_subnets, prefix, root_cidr=namespace.cidr)
     if not suggestion:
         raise HTTPException(status_code=400, detail="No available space in this namespace scope")
         

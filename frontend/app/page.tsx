@@ -9,7 +9,7 @@ import {
 import SubnetGrid from '../components/SubnetGrid';
 import { 
   Plus, Layers, Network, Server, 
-  Activity, ShieldCheck, Search, Wand2, MapPin, Hash, Sparkles
+  Activity, ShieldCheck, Search, Wand2, MapPin, Hash, Sparkles, ArrowRight
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -19,6 +19,7 @@ export default function Dashboard() {
   
   // Forms
   const [newNsName, setNewNsName] = useState('');
+  const [newNsCidr, setNewNsCidr] = useState('');
   
   // Subnet Form
   const [newSubnetCidr, setNewSubnetCidr] = useState('');
@@ -58,9 +59,16 @@ export default function Dashboard() {
   const handleCreateNs = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newNsName) return;
-    await createNamespace(newNsName);
-    setNewNsName('');
-    refreshNamespaces();
+    try {
+      // Default to 10.0.0.0/8 if empty for backward compat/laziness, but let backend validate
+      await createNamespace(newNsName, newNsCidr || '10.0.0.0/8');
+      setNewNsName('');
+      setNewNsCidr('');
+      refreshNamespaces();
+    } catch (error: any) {
+      console.error("Failed to create namespace:", error);
+      alert('Failed to create namespace: ' + (error.response?.data?.detail || error.message));
+    }
   };
 
   const handleCreateSubnet = async (e: React.FormEvent) => {
@@ -132,15 +140,32 @@ export default function Dashboard() {
               <Layers size={14} /> Namespaces (Environments)
             </h2>
             <form onSubmit={handleCreateNs} className="w-full md:w-auto">
-              <div className="relative group flex items-center">
-                <input 
-                  value={newNsName}
-                  onChange={e => setNewNsName(e.target.value)}
-                  placeholder="Create new (e.g. Production)..." 
-                  className="w-full md:w-64 pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all shadow-sm"
-                />
-                <Plus size={16} className="absolute left-3 text-gray-400 group-focus-within:text-black transition-colors" />
-                <button type="submit" className="hidden" /> {/* Enter key submit */}
+              <div className="relative group flex items-center gap-2">
+                <div className="relative flex-1">
+                    <input 
+                    value={newNsName}
+                    onChange={e => setNewNsName(e.target.value)}
+                    placeholder="Name (e.g. Prod)" 
+                    className="w-full md:w-48 pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all shadow-sm"
+                    />
+                    <Plus size={16} className="absolute left-3 top-2.5 text-gray-400 group-focus-within:text-black transition-colors" />
+                </div>
+                
+                <div className="relative w-32 md:w-40">
+                    <input 
+                    value={newNsCidr}
+                    onChange={e => setNewNsCidr(e.target.value)}
+                    placeholder="Root CIDR" 
+                    className="w-full pl-3 pr-9 py-2 bg-white border border-gray-200 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all shadow-sm font-mono text-xs"
+                    />
+                     <button 
+                        type="submit" 
+                        className="absolute right-1 top-1 bottom-1 p-1.5 text-black bg-gray-100 hover:bg-black hover:text-white rounded-md transition-all shadow-sm"
+                        title="Create Namespace"
+                        >
+                        <ArrowRight size={14} />
+                    </button>
+                </div>
               </div>
             </form>
           </div>
@@ -155,14 +180,21 @@ export default function Dashboard() {
               <button
                 key={ns.id}
                 onClick={() => setSelectedNs(ns.id)}
-                className={`flex-shrink-0 flex items-center gap-2 px-5 py-3 rounded-xl border text-sm font-medium transition-all duration-200 ${
+                className={`flex-shrink-0 flex flex-col items-start gap-1 px-5 py-3 rounded-xl border text-sm font-medium transition-all duration-200 min-w-[140px] ${
                   selectedNs === ns.id 
                     ? 'bg-black border-black text-white shadow-lg shadow-gray-200 scale-[1.02]' 
                     : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                <Server size={16} className={selectedNs === ns.id ? 'text-gray-300' : 'text-gray-400'} />
-                {ns.name}
+                <div className="flex items-center gap-2 w-full">
+                    <Server size={16} className={selectedNs === ns.id ? 'text-gray-300' : 'text-gray-400'} />
+                    <span>{ns.name}</span>
+                </div>
+                {ns.cidr && (
+                    <span className={`text-[10px] font-mono pl-6 ${selectedNs === ns.id ? 'text-gray-400' : 'text-gray-400'}`}>
+                        {ns.cidr}
+                    </span>
+                )}
               </button>
             ))}
           </div>
@@ -191,7 +223,7 @@ export default function Dashboard() {
                     <select 
                         value={selectedPrefix}
                         onChange={e => setSelectedPrefix(parseInt(e.target.value))}
-                        className="w-full bg-transparent text-sm font-medium focus:outline-none cursor-pointer mt-3 pt-0.5"
+                        className="w-full bg-transparent text-base md:text-sm font-medium focus:outline-none cursor-pointer mt-3 pt-0.5"
                     >
                         <option value={24}>/24 (Large)</option>
                         <option value={25}>/25 (Half)</option>
@@ -207,7 +239,7 @@ export default function Dashboard() {
                         value={newSubnetCidr}
                         onChange={e => setNewSubnetCidr(e.target.value)}
                         placeholder="Network CIDR..." 
-                        className="w-full h-full pl-3 pr-10 py-3 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black/5 font-mono text-gray-700 transition-all"
+                        className="w-full h-full pl-3 pr-10 py-3 bg-white border border-gray-200 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-black/5 font-mono text-gray-700 transition-all"
                     />
                     <button 
                         type="button"
@@ -226,20 +258,20 @@ export default function Dashboard() {
                     onChange={e => setNewVlanId(e.target.value)}
                     placeholder="VLAN ID (Opt)" 
                     type="number"
-                    className="md:col-span-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black/5"
+                    className="md:col-span-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-black/5"
                   />
                    <input 
                     value={newLocation}
                     onChange={e => setNewLocation(e.target.value)}
                     placeholder="Location (Opt)" 
-                    className="md:col-span-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black/5"
+                    className="md:col-span-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-black/5"
                   />
                   
                   <input 
                     value={newSubnetLabel}
                     onChange={e => setNewSubnetLabel(e.target.value)}
                     placeholder="Label (e.g. Web Servers)..." 
-                    className="md:col-span-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black/5 font-medium"
+                    className="md:col-span-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-black/5 font-medium"
                   />
                   
                   <button className="md:col-span-1 bg-black text-white rounded-lg text-sm font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-gray-200 active:scale-95 py-3 md:py-0">

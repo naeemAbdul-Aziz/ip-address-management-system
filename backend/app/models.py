@@ -11,6 +11,7 @@ class IPStatus(str, Enum):
 # --- Namespace ---
 class NamespaceBase(SQLModel):
     name: str = Field(index=True, unique=True)
+    cidr: str = Field(default="10.0.0.0/8", index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class Namespace(NamespaceBase, table=True):

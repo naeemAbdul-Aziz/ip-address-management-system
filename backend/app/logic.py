@@ -54,87 +54,62 @@ def calculate_utilization(allocated_count: int, cidr: str) -> float:
         
     return (allocated_count / total_usable) * 100.0
 
-def find_next_free_subnet(existing_subnets: List[Subnet], prefix_length: int = 24) -> Optional[str]:
+def find_next_free_subnet(existing_subnets: List[Subnet], prefix_length: int = 24, root_cidr: str = "10.0.0.0/8") -> Optional[str]:
     """
     Automates finding the next available CIDR block in the namespace.
-    Strategy: 
-    1. Sort existing subnets by numeric network address.
-    2. Check gap between 10.0.0.0 (or first subnet) and start.
-    3. Check gaps between subnets.
-    4. Return first fit.
+    Uses the Namespace's Root CIDR as the strict scope.
     """
-    # Simply assume private 10.x.x.x block or 192.168.x.x based on existing data context?
-    # For MVP Steel Thread, let's assume we are operating in 192.168.0.0/16 or 10.0.0.0/8
-    # A smart system detects the "Supernet" context. 
-    # Heuristic: Look at the first subnet. If 10.x, stay in 10.x. 
-    
-    if not existing_subnets:
-        return "10.0.0.0/{}".format(prefix_length)
+    try:
+        scope = ipaddress.ip_network(root_cidr, strict=False)
+    except ValueError:
+        return None
 
+    # Sort existing subnets by numeric network address
     networks = []
     for s in existing_subnets:
         try:
-            networks.append(ipaddress.ip_network(s.cidr, strict=False))
+            # Only include subnets effectively inside the root scope to avoid weirdness
+            net = ipaddress.ip_network(s.cidr, strict=False)
+            if net.overlaps(scope): 
+                 networks.append(net)
         except ValueError:
             continue
     
     networks.sort(key=lambda x: x.network_address)
-    
-    # Heuristic: Define the "Scope" based on the first network found
-    # If first is 192.168.x.x, we scan 192.168.0.0/16
-    first_net = networks[0]
-    if first_net.network_address.is_private:
-        if str(first_net).startswith("10."):
-            scope = ipaddress.ip_network("10.0.0.0/8")
-        elif str(first_net).startswith("172."):
-             scope = ipaddress.ip_network("172.16.0.0/12")
-        else:
-            scope = ipaddress.ip_network("192.168.0.0/16")
-    else:
-        scope = ipaddress.ip_network("10.0.0.0/8") # Fallback
 
-    # Simple gap search
-    # Check start of scope
-    candidate_start = scope.network_address
-    
-    # Create a candidate network
-    try:
-        candidate = ipaddress.ip_network((candidate_start, prefix_length))
-    except (ValueError, TypeError):
-        return None
-
-    # Iterative check against sorted networks
-    # This is O(N^2) worst case if we just increment, but we can jump.
-    # Optimization: "Gap Hopping"
-    
-    # Current candidate cursor
+    # Iterative Gap Search
+    # Start checking from the beginning of the scope
     cursor = int(scope.network_address)
     limit = int(scope.broadcast_address)
     step = 2 ** (32 - prefix_length) # Number of IPs in the new subnet
     
-    # We need to construct network from int
     while cursor <= limit:
         candidate_addr = ipaddress.IPv4Address(cursor)
         try:
             candidate_net = ipaddress.ip_network(f"{candidate_addr}/{prefix_length}")
         except ValueError:
+             # Alignment issue, bump cursor
+             cursor += 1
+             continue
+        
+        # Check if candidate is strictly within scope (should be given loop, but strictness check)
+        if not candidate_net.subnet_of(scope):
              cursor += step
              continue
 
-        # Check overlap
+        # Check overlap against existing networks
         overlap = False
-        next_jump = cursor + step # Default jump if no overlap
+        next_jump = cursor + step # Default jump
         
         for n in networks:
-            # If candidate is effectively AFTER this network, continue
+            # Optimization: If candidate is past this network, ignore
             if int(candidate_net.network_address) >= int(n.broadcast_address):
                 continue
             
-            # If candidate overlaps
+            # If candidate overlaps this existing network
             if candidate_net.overlaps(n):
                 overlap = True
-                # Optimization: Jump to end of overlapping network + 1 boundary
-                # Align to next valid block
+                # Jump to the end of this existing network + 1 (aligned)
                 jump_target = int(n.broadcast_address) + 1
                 # Ensure alignment to prefix size
                 remainder = jump_target % step

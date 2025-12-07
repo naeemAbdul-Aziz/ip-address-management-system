@@ -12,6 +12,7 @@ const api = axios.create({
 export interface Namespace {
     id: number;
     name: string;
+    cidr: string;
     created_at: string;
 }
 
@@ -39,8 +40,8 @@ export const getNamespaces = async () => {
     return response.data;
 };
 
-export const createNamespace = async (name: string) => {
-    const response = await api.post<Namespace>('/namespaces/', { name });
+export const createNamespace = async (name: string, cidr: string) => {
+    const response = await api.post<Namespace>('/namespaces/', { name, cidr });
     return response.data;
 };
 
@@ -82,3 +83,4 @@ export const getSuggestedCidr = async (namespaceId: number, prefix: number = 24)
 };
 
 export default api;
+
