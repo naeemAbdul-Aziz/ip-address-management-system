@@ -16,8 +16,9 @@ IPAM Core is a specialized tool designed to manage IPv4 address allocations with
 ## Features
 
 - **Strict Consistency**: Mathematical validation prevents overlapping subnets.
+- **Root CIDR Enforcement**: Define strict network boundaries (e.g., 10.0.0.0/8) per environment.
 - **VRF Support**: Isolated Namespaces (Prod, Dev, etc.).
-- **Smart Provisioning**: "Magic Wand" automation to find free IP blocks.
+- **Smart Provisioning**: "Magic Wand" automation to list next-free-block respecting Root CIDR.
 - **Visualizer**: Real-time Interactive Grid for subnet utilization.
 - **Metadata**: VLAN ID and Location tracking.
 
@@ -63,6 +64,17 @@ For a full containerized deployment using PostgreSQL.
 - `POST /subnets`: Create subnet (Validates Overlap, VLAN, Location).
 - `GET /namespaces/{id}/suggest-cidr`: Automated next-free-block calculation.
 - `POST /subnets/{id}/allocate`: IP Reservation.
+
+## Troubleshooting
+
+### Database Schema Errors
+If you encounter a `Network Error` or "Internal Server Error" when creating namespaces after an update, it is likely due to a missing column in the database.
+
+**Fix:**
+Run the included patch script:
+```bash
+python backend/fix_db.py
+```
 
 ## License
 

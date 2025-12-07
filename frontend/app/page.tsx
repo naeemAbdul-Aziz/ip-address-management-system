@@ -21,6 +21,14 @@ export default function Dashboard() {
   const [newNsName, setNewNsName] = useState('');
   const [newNsCidr, setNewNsCidr] = useState('');
   
+  const CIDR_PRESETS = [
+    { label: 'Large (10.x.x.x)', value: '10.0.0.0/8' },
+    { label: 'Medium (172.16.x.x)', value: '172.16.0.0/12' },
+    { label: 'Small (192.168.x.x)', value: '192.168.0.0/16' },
+    { label: 'Custom', value: 'custom' },
+  ];
+  const [selectedPreset, setSelectedPreset] = useState(CIDR_PRESETS[0].value);
+
   // Subnet Form
   const [newSubnetCidr, setNewSubnetCidr] = useState('');
   const [newSubnetLabel, setNewSubnetLabel] = useState('');
@@ -55,6 +63,13 @@ export default function Dashboard() {
     refreshSubnets();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedNs]);
+  
+  // Sync preset to cidr
+  useEffect(() => {
+    if (selectedPreset !== 'custom') {
+        setNewNsCidr(selectedPreset);
+    }
+  }, [selectedPreset]);
 
   const handleCreateNs = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +78,8 @@ export default function Dashboard() {
       // Default to 10.0.0.0/8 if empty for backward compat/laziness, but let backend validate
       await createNamespace(newNsName, newNsCidr || '10.0.0.0/8');
       setNewNsName('');
-      setNewNsCidr('');
+      setNewNsCidr(CIDR_PRESETS[0].value);
+      setSelectedPreset(CIDR_PRESETS[0].value);
       refreshNamespaces();
     } catch (error: any) {
       console.error("Failed to create namespace:", error);
@@ -151,13 +167,38 @@ export default function Dashboard() {
                     <Plus size={16} className="absolute left-3 top-2.5 text-gray-400 group-focus-within:text-black transition-colors" />
                 </div>
                 
-                <div className="relative w-32 md:w-40">
-                    <input 
-                    value={newNsCidr}
-                    onChange={e => setNewNsCidr(e.target.value)}
-                    placeholder="Root CIDR" 
-                    className="w-full pl-3 pr-9 py-2 bg-white border border-gray-200 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all shadow-sm font-mono text-xs"
-                    />
+                <div className="relative w-40 md:w-48">
+                    {selectedPreset === 'custom' ? (
+                         <input 
+                         value={newNsCidr}
+                         onChange={e => setNewNsCidr(e.target.value)}
+                         placeholder="Root CIDR" 
+                         autoFocus
+                         className="w-full pl-3 pr-9 py-2 bg-white border border-gray-200 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all shadow-sm font-mono text-xs"
+                         />
+                    ) : (
+                        <select
+                            value={selectedPreset}
+                            onChange={e => setSelectedPreset(e.target.value)}
+                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all shadow-sm text-gray-600 appearance-none cursor-pointer"
+                        >
+                            {CIDR_PRESETS.map(p => (
+                                <option key={p.value} value={p.value} className="text-gray-900">{p.label}</option>
+                            ))}
+                        </select>
+                    )}
+                    
+                     {selectedPreset === 'custom' && (
+                        <button 
+                            type="button" 
+                            onClick={() => setSelectedPreset(CIDR_PRESETS[0].value)}
+                            className="absolute right-9 top-1 bottom-1 p-1 text-gray-400 hover:text-black"
+                            title="Back to Presets"
+                        >
+                            <span className="text-[10px] font-bold">X</span>
+                        </button>
+                     )}
+
                      <button 
                         type="submit" 
                         className="absolute right-1 top-1 bottom-1 p-1.5 text-black bg-gray-100 hover:bg-black hover:text-white rounded-md transition-all shadow-sm"
