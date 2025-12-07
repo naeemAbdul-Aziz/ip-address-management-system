@@ -59,6 +59,7 @@ async def lifespan(app: FastAPI):
                 logger.info("✅ Database schema validation passed")
             except Exception as e:
                 logger.warning(f"⚠️ Schema migration needed: {str(e)}")
+                session.rollback() # Fix: Rollback the failed transaction (SELECT) before starting a new one (ALTER)
                 try:
                     session.connection().execute(text("ALTER TABLE namespace ADD COLUMN cidr VARCHAR DEFAULT '10.0.0.0/8'"))
                     session.commit()
