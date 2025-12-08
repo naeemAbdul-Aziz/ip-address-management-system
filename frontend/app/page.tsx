@@ -129,8 +129,8 @@ export default function Dashboard() {
       <header className="border-b border-gray-200 bg-white/80 backdrop-blur-md sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 flex-shrink-0">
-            <div className="bg-black text-white p-1.5 rounded-lg shadow-sm">
-              <Network size={20} />
+            <div className="bg-black p-1.5 rounded-lg shadow-sm">
+               <img src="/logo.png" alt="Logo" className="w-5 h-5 object-contain invert" />
             </div>
             <h1 className="text-lg font-semibold tracking-tight text-gray-900 hidden md:block">
               IPAM Core

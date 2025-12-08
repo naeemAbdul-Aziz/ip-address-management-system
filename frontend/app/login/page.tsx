@@ -47,8 +47,8 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
         <div className="flex justify-center mb-8">
-          <div className="bg-black text-white p-3 rounded-xl shadow-lg">
-            <Network size={32} />
+          <div className="bg-black p-3 rounded-xl shadow-lg">
+             <img src="/logo.png" alt="IPAM Core" className="w-8 h-8 object-contain invert" />
           </div>
         </div>
         
