@@ -127,20 +127,64 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-gray-200 pb-20">
       {/* Header */}
       <header className="border-b border-gray-200 bg-white/80 backdrop-blur-md sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <div className="bg-black text-white p-1.5 rounded-lg shadow-sm">
               <Network size={20} />
             </div>
             <h1 className="text-lg font-semibold tracking-tight text-gray-900 hidden md:block">
               IPAM Core
             </h1>
-            <h1 className="text-lg font-semibold tracking-tight text-gray-900 md:hidden">
-              IPAM
-            </h1>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-full text-xs font-medium text-emerald-700 border border-emerald-100">
+
+           {/* Search Bar */}
+           <div className="flex-1 max-w-md relative group">
+                <div className="relative">
+                    <Search size={16} className="absolute left-3 top-2.5 text-gray-400 group-focus-within:text-black transition-colors" />
+                    <input 
+                        placeholder="Search IPs, Hostnames, or CIDRs..." 
+                        className="w-full pl-9 pr-4 py-2 bg-gray-100/50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black/5 focus:bg-white transition-all"
+                        onChange={async (e) => {
+                            const val = e.target.value;
+                            if (val.length >= 2) {
+                                try {
+                                    const { search } = await import('../lib/api');
+                                    const res = await search(val);
+                                    // Hacky simple dropdown for MVP - ideally should be a component
+                                    const dropdown = document.getElementById('search-results');
+                                    if (dropdown) {
+                                        dropdown.innerHTML = res.map(r => `
+                                            <div class="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-[10px] font-bold uppercase tracking-wider text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">${r.type}</span>
+                                                    <span class="text-sm font-medium text-gray-900">${r.title}</span>
+                                                </div>
+                                                <div class="text-xs text-gray-500 pl-1 mt-0.5">${r.subtitle}</div>
+                                            </div>
+                                        `).join('') || '<div class="p-4 text-sm text-gray-500">No results found</div>';
+                                        dropdown.classList.remove('hidden');
+                                    }
+                                } catch (e) {
+                                    console.error(e);
+                                }
+                            } else {
+                                document.getElementById('search-results')?.classList.add('hidden');
+                            }
+                        }}
+                        onBlur={() => setTimeout(() => document.getElementById('search-results')?.classList.add('hidden'), 200)}
+                        onFocus={() => {
+                             if ((document.querySelector('input[placeholder^="Search"]') as HTMLInputElement).value.length >= 2) {
+                                 document.getElementById('search-results')?.classList.remove('hidden');
+                             }
+                        }}
+                    />
+                </div>
+                {/* Results Dropdown */}
+                <div id="search-results" className="hidden absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden max-h-64 overflow-y-auto z-50"></div>
+           </div>
+
+          <div className="flex items-center gap-4 flex-shrink-0">
+            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-full text-xs font-medium text-emerald-700 border border-emerald-100">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               Operational
             </div>

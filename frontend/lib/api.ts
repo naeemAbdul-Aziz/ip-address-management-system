@@ -9,6 +9,29 @@ const api = axios.create({
     },
 });
 
+// Auth Interceptor
+api.interceptors.request.use((config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+});
+
+// Error handling (401 Redirect)
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response && error.response.status === 401) {
+            localStorage.removeItem('token');
+            if (window.location.pathname !== '/login') {
+                window.location.href = '/login';
+            }
+        }
+        return Promise.reject(error);
+    }
+);
+
 export interface Namespace {
     id: number;
     name: string;
@@ -72,14 +95,31 @@ export const getSubnetIPs = async (subnetId: number) => {
     return response.data;
 };
 
-export const allocateIP = async (subnetId: number) => {
-    const response = await api.post<IPAddress>(`/subnets/${subnetId}/allocate`);
+export const allocateIP = async (subnetId: number, hostname?: string) => {
+    const response = await api.post<IPAddress>(`/subnets/${subnetId}/allocate`, { hostname });
     return response.data;
 };
 
 export const getSuggestedCidr = async (namespaceId: number, prefix: number = 24) => {
     const response = await api.get<{ cidr: string }>(`/namespaces/${namespaceId}/suggest-cidr`, { params: { prefix } });
     return response.data;
+};
+
+export interface SearchResult {
+    type: 'ip' | 'subnet';
+    id: number;
+    title: string;
+    subtitle: string;
+    link: string;
+}
+
+export const search = async (q: string) => {
+    const response = await api.get<{ results: SearchResult[] }>('/search', { params: { q } });
+    return response.data.results;
+};
+
+export const releaseIp = async (ipId: number): Promise<void> => {
+    await api.delete(`/ips/${ipId}`);
 };
 
 export default api;

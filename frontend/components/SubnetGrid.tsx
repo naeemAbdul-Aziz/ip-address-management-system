@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Subnet, IPAddress, getSubnetIPs, allocateIP } from '../lib/api';
+import { Subnet, IPAddress, getSubnetIPs, allocateIP, releaseIp } from '../lib/api';
 import { Plus, RefreshCw } from 'lucide-react';
 
 interface SubnetGridProps {
@@ -30,9 +30,14 @@ export default function SubnetGrid({ subnet }: SubnetGridProps) {
 
   const handleAllocate = async () => {
     if (allocating) return;
+    
+    // Simple prompt for MVP - can be replaced with Modal later
+    const deviceName = prompt("Enter Device Name / Hostname (Optional):");
+    if (deviceName === null) return; // Cancelled
+
     try {
       setAllocating(true);
-      await allocateIP(subnet.id);
+      await allocateIP(subnet.id, deviceName || undefined);
       await fetchIPs(); // Refresh
     } catch (error) {
       alert('Failed to allocate IP (Subnet might be full)');
@@ -72,7 +77,15 @@ export default function SubnetGrid({ subnet }: SubnetGridProps) {
           key={i} 
           title={existing ? `${currentIP} (${existing.hostname})` : currentIP}
           className={`w-3 h-3 rounded-[2px] ${statusClass} transition-all duration-200`}
-          onClick={() => !existing && i !== 0 && i !== 255 ? handleAllocate() : null}
+          onClick={() => {
+            if (!existing && i !== 0 && i !== 255) {
+                handleAllocate();
+            } else if (existing) {
+                if (window.confirm(`Release IP ${currentIP}?`)) {
+                    releaseIp(existing.id).then(fetchIPs).catch(e => alert(e.message));
+                }
+            }
+          }}
         />
       );
     }
@@ -85,15 +98,18 @@ export default function SubnetGrid({ subnet }: SubnetGridProps) {
             {ips.map(ip => (
                 <span key={ip.id} className="bg-black text-white text-xs px-2 py-1 rounded-md font-medium">{ip.address}</span>
             ))}
-             <button
-              onClick={handleAllocate}
-              disabled={allocating}
-              className="bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-xs font-medium hover:bg-gray-300"
-            >
-              + Alloc
-            </button>
         </div>
-      </div>
+         <div className="mt-2">
+              <button
+               onClick={handleAllocate}
+               disabled={allocating}
+               className="bg-black text-white px-3 py-1.5 rounded-md text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+             >
+               + Allocate New
+             </button>
+         </div>
+        </div>
+
     );
   }
 
