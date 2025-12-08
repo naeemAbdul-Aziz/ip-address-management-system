@@ -11,7 +11,7 @@ import ipaddress
 import time
 import logging
 
-from .models import Namespace, Subnet, IPAddress, IPStatus, SubnetBase
+from .models import Namespace, Subnet, IPAddress, IPStatus, SubnetBase, Device, DeviceBase
 from .logic import (
     validate_overlap, 
     get_next_available_ip, 
@@ -66,6 +66,22 @@ async def lifespan(app: FastAPI):
                     logger.info("✅ Successfully added 'cidr' column")
                 except Exception as migration_error:
                     logger.error(f"❌ Migration failed: {str(migration_error)}")
+                    
+        # Auto-migration for 'device_id' column
+        with Session(engine) as session:
+            try:
+                session.exec(text("SELECT device_id FROM ipaddress LIMIT 1"))
+                logger.info("✅ Database schema (devices) validation passed")
+            except Exception as e:
+                logger.warning(f"⚠️ Device schema migration needed: {str(e)}")
+                session.rollback()
+                try:
+                    # SQLite and Postgres handle adding FKs differently, keeping it simple for now (no constraint enforcement in raw SQL to avoid dialect issues)
+                    session.connection().execute(text("ALTER TABLE ipaddress ADD COLUMN device_id INTEGER")) 
+                    session.commit()
+                    logger.info("✅ Successfully added 'device_id' column")
+                except Exception as migration_error:
+                    logger.error(f"❌ Device Migration failed: {str(migration_error)}")
                     
     except Exception as e:
         logger.error(f"❌ Startup failed: {str(e)}", exc_info=True)
@@ -125,6 +141,89 @@ async def http_exception_handler(request, exc):
     """Handle HTTP exceptions with proper logging."""
     logger.warning(f"HTTP {exc.status_code}: {exc.detail}")
     return {"error_code": "HTTP_ERROR", "message": exc.detail}
+
+
+from fastapi.security import OAuth2PasswordRequestForm
+from .auth import create_access_token, get_current_user, verify_password, get_password_hash, ACCESS_TOKEN_EXPIRE_MINUTES, timedelta
+
+# ... (Database Setup code remains) ...
+
+# Hardcoded Admin User for MVP
+FAKE_USERS_DB = {
+    "admin": {
+        "username": "admin",
+        "full_name": "System Administrator",
+        "hashed_password": get_password_hash("admin") # In production use env var!
+    }
+}
+
+@app.post("/token")
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    user = FAKE_USERS_DB.get(form_data.username)
+    if not user or not verify_password(form_data.password, user["hashed_password"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user["username"]}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+# ============================================================================
+# SEARCH ENDPOINTS
+# ============================================================================
+
+@app.get("/search")
+def search(q: str, session: Session = Depends(get_session)):
+    """Search for IPs or Subnets."""
+    if len(q) < 2:
+        return {"results": []}
+    
+    results = []
+    
+    # Search IPs
+    ips = session.exec(
+        select(IPAddress)
+        .where(
+            (IPAddress.address.contains(q)) | 
+            (IPAddress.hostname.contains(q))
+        )
+        .limit(10)
+    ).all()
+    
+    for ip in ips:
+        results.append({
+            "type": "ip",
+            "id": ip.id,
+            "title": ip.address,
+            "subtitle": ip.hostname or "No Hostname",
+            "link": "#" # Frontend will handle navigation
+        })
+
+    # Search Subnets
+    subnets = session.exec(
+        select(Subnet)
+        .where(
+            (Subnet.cidr.contains(q)) | 
+            (Subnet.label.contains(q))
+        )
+        .limit(5)
+    ).all()
+    
+    for subnet in subnets:
+        results.append({
+            "type": "subnet",
+            "id": subnet.id,
+            "title": subnet.cidr,
+            "subtitle": subnet.label,
+            "link": "#"
+        })
+        
+    return {"results": results}
 
 
 # ============================================================================
@@ -371,8 +470,43 @@ def get_subnet(subnet_id: int, session: Session = Depends(get_session)):
 # IP ADDRESS ENDPOINTS
 # ============================================================================
 
+# ============================================================================
+# DEVICE ENDPOINTS
+# ============================================================================
+
+@app.get("/devices", response_model=List[Device])
+def list_devices(session: Session = Depends(get_session)):
+    """List all devices."""
+    return session.exec(select(Device)).all()
+
+@app.post("/devices", response_model=Device, status_code=201)
+def create_device(device: DeviceBase, session: Session = Depends(get_session)):
+    """Create a new device manually."""
+    try:
+        db_device = Device.model_validate(device)
+        session.add(db_device)
+        session.commit()
+        session.refresh(db_device)
+        return db_device
+    except Exception as e:
+        log_error(e, "create_device")
+        raise HTTPException(status_code=500, detail="Failed to create device")
+
+
+# ============================================================================
+# IP ADDRESS ENDPOINTS
+# ============================================================================
+
+class IPAllocationRequest(SQLModel):
+    hostname: Optional[str] = None # Treat as Device Name
+
 @app.post("/subnets/{subnet_id}/allocate", response_model=IPAddress, status_code=201)
-def allocate_ip(subnet_id: int, session: Session = Depends(get_session)):
+def allocate_ip(
+    subnet_id: int, 
+    request: Optional[IPAllocationRequest] = None,
+    session: Session = Depends(get_session),
+    current_user: str = Depends(get_current_user) # Protected
+):
     """Allocate the next available IP address from a subnet."""
     try:
         subnet = session.get(Subnet, subnet_id)
@@ -389,17 +523,37 @@ def allocate_ip(subnet_id: int, session: Session = Depends(get_session)):
         if not next_ip:
             raise SubnetFullError(subnet_id, subnet.cidr)
 
+        # Smart Provisioning: Handle Device
+        device_id = None
+        hostname = None
+        
+        if request and request.hostname:
+            hostname = request.hostname
+            # Check if device exists
+            device = session.exec(select(Device).where(Device.name == request.hostname)).first()
+            if not device:
+                # Auto-create device
+                device = Device(name=request.hostname, type="auto-created")
+                session.add(device)
+                session.commit()
+                session.refresh(device)
+                log_operation("allocate_ip", "device_created", {"device_name": device.name})
+            
+            device_id = device.id
+
         # Create and store IP
         new_ip = IPAddress(
             subnet_id=subnet.id,
             address=next_ip,
-            status=IPStatus.ACTIVE
+            status=IPStatus.ACTIVE,
+            hostname=hostname, # Keep legacy field populated for now
+            device_id=device_id
         )
         session.add(new_ip)
         session.commit()
         session.refresh(new_ip)
 
-        log_database_operation("CREATE", "IPAddress", "success", details={"address": next_ip})
+        log_database_operation("CREATE", "IPAddress", "success", details={"address": next_ip, "device": hostname})
         log_operation("allocate_ip", "success", {"address": next_ip, "subnet_id": subnet_id})
         
         return new_ip
@@ -434,6 +588,32 @@ def list_subnet_ips(subnet_id: int, status_filter: Optional[str] = None, session
     except Exception as e:
         log_error(e, "list_subnet_ips", {"subnet_id": subnet_id})
         raise HTTPException(status_code=500, detail="Failed to fetch IP addresses")
+
+
+@app.delete("/ips/{ip_id}", status_code=204)
+def release_ip(
+    ip_id: int, 
+    session: Session = Depends(get_session),
+    current_user: str = Depends(get_current_user) # Protected
+):
+    """Release (delete) an allocated IP address."""
+    try:
+        ip = session.get(IPAddress, ip_id)
+        if not ip:
+            raise ResourceNotFoundError("IPAddress", ip_id)
+
+        session.delete(ip)
+        session.commit()
+        
+        log_database_operation("DELETE", "IPAddress", "success", details={"id": ip_id, "address": ip.address})
+        log_operation("release_ip", "success", {"id": ip_id, "address": ip.address})
+        return None
+
+    except ResourceNotFoundError as e:
+        raise e.to_http_exception()
+    except Exception as e:
+        log_error(e, "release_ip", {"ip_id": ip_id})
+        raise HTTPException(status_code=500, detail="Failed to release IP address")
 
 
 # ============================================================================
