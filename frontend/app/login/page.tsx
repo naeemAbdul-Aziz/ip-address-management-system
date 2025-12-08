@@ -68,7 +68,7 @@ export default function LoginPage() {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-black/5 focus:bg-white transition-all"
+              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-base md:text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black/5 focus:bg-white transition-all"
               placeholder="admin"
               required
             />
@@ -80,7 +80,7 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-black/5 focus:bg-white transition-all"
+              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-base md:text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black/5 focus:bg-white transition-all"
               placeholder="••••••"
               required
             />

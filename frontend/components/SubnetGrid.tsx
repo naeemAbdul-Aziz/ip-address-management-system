@@ -216,7 +216,7 @@ export default function SubnetGrid({ subnet }: SubnetGridProps) {
                       value={deviceName}
                       onChange={e => setDeviceName(e.target.value)}
                       placeholder="e.g. printer-floor-2"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black/5"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black/5"
                       autoFocus
                   />
               </div>

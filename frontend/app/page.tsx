@@ -138,19 +138,18 @@ export default function Dashboard() {
           </div>
 
            {/* Search Bar */}
-           <div className="flex-1 max-w-md relative group">
+           <div className="flex-1 max-w-md relative group hidden sm:block">
                 <div className="relative">
                     <Search size={16} className="absolute left-3 top-2.5 text-gray-400 group-focus-within:text-black transition-colors" />
                     <input 
-                        placeholder="Search IPs, Hostnames, or CIDRs..." 
-                        className="w-full pl-9 pr-4 py-2 bg-gray-100/50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black/5 focus:bg-white transition-all"
+                        placeholder="Search..." 
+                        className="w-full pl-9 pr-4 py-2 bg-gray-100/50 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black/5 focus:bg-white transition-all"
                         onChange={async (e) => {
                             const val = e.target.value;
                             if (val.length >= 2) {
                                 try {
                                     const { search } = await import('../lib/api');
                                     const res = await search(val);
-                                    // Hacky simple dropdown for MVP - ideally should be a component
                                     const dropdown = document.getElementById('search-results');
                                     if (dropdown) {
                                         dropdown.innerHTML = res.map(r => `
@@ -164,24 +163,27 @@ export default function Dashboard() {
                                         `).join('') || '<div class="p-4 text-sm text-gray-500">No results found</div>';
                                         dropdown.classList.remove('hidden');
                                     }
-                                } catch (e) {
-                                    console.error(e);
-                                }
+                                } catch (e) { console.error(e); }
                             } else {
                                 document.getElementById('search-results')?.classList.add('hidden');
                             }
                         }}
                         onBlur={() => setTimeout(() => document.getElementById('search-results')?.classList.add('hidden'), 200)}
-                        onFocus={() => {
-                             if ((document.querySelector('input[placeholder^="Search"]') as HTMLInputElement).value.length >= 2) {
-                                 document.getElementById('search-results')?.classList.remove('hidden');
-                             }
-                        }}
+                        onFocus={() => document.getElementById('search-results')?.classList.remove('hidden')}
                     />
                 </div>
-                {/* Results Dropdown */}
                 <div id="search-results" className="hidden absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden max-h-64 overflow-y-auto z-50"></div>
            </div>
+
+           <button 
+                onClick={() => {
+                    localStorage.removeItem('token');
+                    window.location.href = '/login';
+                }}
+                className="text-sm font-medium text-gray-500 hover:text-red-600 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-red-50"
+               >
+                 Log Out
+           </button>
 
           <div className="flex items-center gap-4 flex-shrink-0">
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-full text-xs font-medium text-emerald-700 border border-emerald-100">
@@ -206,7 +208,7 @@ export default function Dashboard() {
                     value={newNsName}
                     onChange={e => setNewNsName(e.target.value)}
                     placeholder="Name (e.g. Prod)" 
-                    className="w-full md:w-48 pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all shadow-sm"
+                    className="w-full md:w-48 pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-lg text-base md:text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all shadow-sm"
                     />
                     <Plus size={16} className="absolute left-3 top-2.5 text-gray-400 group-focus-within:text-black transition-colors" />
                 </div>
@@ -324,7 +326,7 @@ export default function Dashboard() {
                         value={newSubnetCidr}
                         onChange={e => setNewSubnetCidr(e.target.value)}
                         placeholder="Network CIDR..." 
-                        className="w-full h-full pl-3 pr-10 py-3 bg-white border border-gray-200 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-black/5 font-mono text-gray-700 transition-all"
+                        className="w-full h-full pl-3 pr-10 py-3 bg-white border border-gray-200 rounded-lg text-base md:text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black/5 font-mono transition-all"
                     />
                     <button 
                         type="button"
@@ -356,7 +358,7 @@ export default function Dashboard() {
                     value={newSubnetLabel}
                     onChange={e => setNewSubnetLabel(e.target.value)}
                     placeholder="Label (e.g. Web Servers)..." 
-                    className="md:col-span-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-black/5 font-medium"
+                    className="md:col-span-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-base md:text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black/5 font-medium"
                   />
                   
                   <button className="md:col-span-1 bg-black text-white rounded-lg text-sm font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-gray-200 active:scale-95 py-3 md:py-0">
