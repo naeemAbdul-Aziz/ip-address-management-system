@@ -21,6 +21,7 @@ export const metadata: Metadata = {
 };
 
 import AuthGuard from "../components/AuthGuard";
+import { ToastProvider } from "../components/ui/Toast";
 
 export default function RootLayout({
   children,
@@ -32,9 +33,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AuthGuard>
-          {children}
-        </AuthGuard>
+        <ToastProvider>
+          <AuthGuard>
+            {children}
+          </AuthGuard>
+        </ToastProvider>
       </body>
     </html>
   );
