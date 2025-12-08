@@ -39,8 +39,12 @@ export default function SubnetGrid({ subnet }: SubnetGridProps) {
       setAllocating(true);
       await allocateIP(subnet.id, deviceName || undefined);
       await fetchIPs(); // Refresh
-    } catch (error) {
-      alert('Failed to allocate IP (Subnet might be full)');
+    } catch (error: any) {
+      // Don't alert if it's an auth error (redirect happens automatically)
+      if (error.response && error.response.status === 401) return;
+      
+      const msg = error.response?.data?.message || 'Subnet might be full';
+      alert(`Failed to allocate IP: ${msg}`);
       console.error(error);
     } finally {
       setAllocating(false);
@@ -60,12 +64,13 @@ export default function SubnetGrid({ subnet }: SubnetGridProps) {
       const existing = ipMap.get(currentIP);
       
       // Apple-style minimalist palette
-      // Free: Very subtle gray or white with border
-      // Active: Solid black or specific status color
-      let statusClass = "bg-gray-50 border border-gray-200 hover:border-gray-400 cursor-pointer"; // Free
+      // Free: White with clearer border
+      // Active: Solid black 
+      let statusClass = "bg-white border border-gray-300 hover:border-gray-500 cursor-pointer"; // Free (Darker border)
       
       if (existing) {
         statusClass = "bg-black border-black cursor-not-allowed"; // Active
+
         if (existing.status === 'reserved') statusClass = "bg-orange-500 border-orange-500 cursor-not-allowed";
       }
       
