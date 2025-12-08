@@ -100,6 +100,11 @@ export const allocateIP = async (subnetId: number, hostname?: string) => {
     return response.data;
 };
 
+export const reserveIP = async (subnetId: number, address?: string, description?: string) => {
+    const response = await api.post<IPAddress>(`/subnets/${subnetId}/reserve`, { address, description });
+    return response.data;
+};
+
 export const getSuggestedCidr = async (namespaceId: number, prefix: number = 24) => {
     const response = await api.get<{ cidr: string }>(`/namespaces/${namespaceId}/suggest-cidr`, { params: { prefix } });
     return response.data;

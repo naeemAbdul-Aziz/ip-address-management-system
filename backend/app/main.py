@@ -565,6 +565,62 @@ def allocate_ip(
         raise HTTPException(status_code=500, detail="Failed to allocate IP address")
 
 
+class IPReservationRequest(SQLModel):
+    address: Optional[str] = None # If None, next available
+    description: Optional[str] = "Reserved manually"
+
+@app.post("/subnets/{subnet_id}/reserve", response_model=IPAddress, status_code=201)
+def reserve_ip(
+    subnet_id: int, 
+    request: IPReservationRequest,
+    session: Session = Depends(get_session),
+    current_user: str = Depends(get_current_user)
+):
+    """Manually reserve an IP address (Mark as Reserved)."""
+    try:
+        subnet = session.get(Subnet, subnet_id)
+        if not subnet:
+            raise ResourceNotFoundError("Subnet", subnet_id)
+
+        target_ip = request.address
+        
+        # If no specific IP, find next free
+        if not target_ip:
+            allocated_ips = session.exec(select(IPAddress.address).where(IPAddress.subnet_id == subnet_id)).all()
+            target_ip = get_next_available_ip(subnet.cidr, allocated_ips)
+            if not target_ip:
+                raise SubnetFullError(subnet_id, subnet.cidr)
+
+        # Check if already taken
+        existing = session.exec(
+            select(IPAddress).where(IPAddress.subnet_id == subnet_id, IPAddress.address == target_ip)
+        ).first()
+        
+        if existing:
+            # If it exists, we can force update or error. Error is safer for now.
+            raise DuplicateResourceError("IPAddress", target_ip)
+
+        # Create Reserved IP
+        new_ip = IPAddress(
+            subnet_id=subnet.id,
+            address=target_ip,
+            status=IPStatus.RESERVED,
+            description=request.description
+        )
+        session.add(new_ip)
+        session.commit()
+        session.refresh(new_ip)
+        
+        log_database_operation("CREATE", "IPAddress", "success", details={"address": target_ip, "status": "reserved"})
+        return new_ip
+
+    except (ResourceNotFoundError, DuplicateResourceError, SubnetFullError) as e:
+        raise e.to_http_exception()
+    except Exception as e:
+        log_error(e, "reserve_ip", {"subnet_id": subnet_id})
+        raise HTTPException(status_code=500, detail="Failed to reserve IP")
+
+
 @app.get("/subnets/{subnet_id}/ips", response_model=List[IPAddress])
 def list_subnet_ips(subnet_id: int, status_filter: Optional[str] = None, session: Session = Depends(get_session)):
     """List all IPs in a subnet, optionally filtered by status."""
